@@ -1,8 +1,6 @@
 // Só lê a lista de canais que já está na tela. Não usa token, não chama API,
-// não clica nem envia nada no Discord.
+// não clica nem envia nada no Discord. Quem decide os avisos é o background.js.
 const WAITING_ROOM_ID = "1305663080826535937"; // Aguardando Suporte
-
-let known = null; // nomes já vistos na sala; null = ainda sem leitura
 
 function usersInChannel(channelId) {
   const link = document.querySelector(`[data-list-item-id="channels___${channelId}"]`);
@@ -34,20 +32,29 @@ function beep() {
   setTimeout(() => ctx.close(), 1000);
 }
 
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "beep") beep();
+});
+
+let lastReport = "";
+
 // MutationObserver em vez de setInterval: o Chrome limita timers de aba
 // minimizada/em segundo plano a 1x por minuto, mas não segura o observer.
 function check() {
-  const current = usersInChannel(WAITING_ROOM_ID);
-  if (current === null) return; // não some com quem já estava só porque o canal saiu da tela
-  if (known !== null) {
-    const joined = [...current].filter((name) => !known.has(name));
-    if (joined.length) {
-      chrome.runtime.sendMessage({ type: "joined", names: joined });
-      beep();
-    }
+  const users = usersInChannel(WAITING_ROOM_ID);
+  const report = users
+    ? { visible: true, names: [...users].sort() }
+    : { visible: false, names: [] };
+  const key = JSON.stringify(report);
+  if (key === lastReport) return;
+  lastReport = key;
+  try {
+    chrome.runtime.sendMessage({ type: "report", ...report }).catch(() => {});
+  } catch {
+    observer.disconnect(); // extensão recarregada: este script ficou órfão
   }
-  known = current;
 }
 
-new MutationObserver(check).observe(document.body, { childList: true, subtree: true });
+const observer = new MutationObserver(check);
+observer.observe(document.body, { childList: true, subtree: true });
 check();
