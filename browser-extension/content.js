@@ -1,7 +1,12 @@
 // Só lê a lista de canais e abre menus na tela. Não usa token, não chama API e
 // nunca move ninguém: o clique final em "Mover para" é sempre do staff.
 // Quem decide os avisos é o background.js.
-const WAITING_ROOM_ID = "1305663080826535937"; // Aguardando Suporte
+// Salas de espera vigiadas.
+const ROOMS = [
+  { key: "suporte", label: "Aguardando Suporte", id: "1305663080826535937" },
+  { key: "banido", label: "Aguardando Banido", id: "1566462788023492786" },
+  { key: "entrevista", label: "Entrevista Staff", id: "1564794355766657035" },
+];
 const WORK_CHANNEL_IDS = [
   "1305663051990827039", // Atendimento 01 (e 02: veio com o mesmo ID)
   "1305663056868544593", // Atendimento 03
@@ -24,9 +29,13 @@ function channelName(channelId) {
   return (link?.querySelector('[class*="name"]') ?? link)?.textContent.trim() ?? "";
 }
 
+const roomLink = (room) => channelLink(room.id);
+
+const voiceRows = (channelId) => voiceRowsOf(channelLink(channelId));
+
 // [{ name, el, nameEl }] de quem está na call, ou null se o canal não está na tela.
-function voiceRows(channelId) {
-  const item = channelLink(channelId)?.closest("li");
+function voiceRowsOf(link) {
+  const item = link?.closest("li");
   if (!item) return null; // canal fora da tela (outro servidor ou lista rolada)
   // ponytail: depende das classes "voiceUser*"/"username*" do Discord; se ele mudar o HTML, ajustar aqui.
   return [...item.querySelectorAll('[class*="voiceUser"]')]
@@ -97,8 +106,9 @@ function hover(el) {
 
 const menuItems = () => [...document.querySelectorAll('[role="menuitem"]')];
 
-async function focusUser(name) {
-  const rows = voiceRows(WAITING_ROOM_ID);
+async function focusUser(name, roomKey) {
+  const room = ROOMS.find((r) => r.key === roomKey) ?? ROOMS[0];
+  const rows = voiceRowsOf(roomLink(room));
   // Só o teste cai no primeiro da sala; aviso real nunca abre o menu de outro jogador.
   const row = rows?.find((r) => r.name === name) ?? (name === "Teste" ? rows?.[0] : null);
   if (!row) return;
@@ -126,7 +136,7 @@ async function focusUser(name) {
 
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "beep") beep();
-  if (msg.type === "focusUser") focusUser(msg.name);
+  if (msg.type === "focusUser") focusUser(msg.name, msg.room);
 });
 
 // ---------- leitura contínua da sala ----------
@@ -136,12 +146,16 @@ let lastReport = "";
 // MutationObserver em vez de setInterval: o Chrome limita timers de aba
 // minimizada/em segundo plano a 1x por minuto, mas não segura o observer.
 function check() {
-  const rows = voiceRows(WAITING_ROOM_ID);
-  const report = {
-    visible: rows !== null,
-    names: rows ? [...new Set(rows.map((r) => r.name))].sort() : [],
-    myChannel: myChannel()?.name ?? null,
-  };
+  const rooms = {};
+  for (const room of ROOMS) {
+    const rows = voiceRowsOf(roomLink(room));
+    rooms[room.key] = {
+      label: room.label,
+      visible: rows !== null,
+      names: rows ? [...new Set(rows.map((r) => r.name))].sort() : [],
+    };
+  }
+  const report = { rooms, myChannel: myChannel()?.name ?? null };
   const key = JSON.stringify(report);
   if (key === lastReport) return;
   lastReport = key;

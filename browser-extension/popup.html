@@ -39,6 +39,11 @@
   .pill { padding:3px 8px; border-radius:10px; font-size:11px; font-weight:600; color:var(--ok); background:#3BA55D22; white-space:nowrap; }
   .pill.late { color:var(--warn); background:#E8A33D22; }
   .empty { padding:8px 10px; color:var(--muted); }
+  .tag { padding:1px 6px; border-radius:6px; font-size:10px; font-weight:700; letter-spacing:.3px; margin-left:6px;
+         color:#AEB5FF; background:#5865F22E; vertical-align:1px; }
+  .tag.banido { color:#FF8A8D; background:#ED42452E; }
+  .tag.entrevista { color:#5FD4C4; background:#1ABC9C2E; }
+  .partial { margin:10px 0 0; font-size:11px; color:var(--warn); }
 
   .warn-hero { padding:16px; background:#E8A33D0F; border-block:1px solid #E8A33D40; }
   .warn-row { display:flex; gap:12px; margin-bottom:12px; }
@@ -97,27 +102,28 @@
 <body>
   <header>
     <div class="logo"><svg viewBox="0 0 24 24"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/><path d="M21 16v2a4 4 0 0 1-4 4h-5"/></svg></div>
-    <div class="title"><b>City Support</b><small>Aviso de fila · Aguardando Suporte</small></div>
+    <div class="title"><b>City Support</b><small>Aviso de fila · 3 salas de espera</small></div>
     <span id="chip" class="chip" role="status">Vigiando</span>
   </header>
 
   <div id="hero" class="hero">
     <div class="hero-row">
       <span id="count" class="count">0</span>
-      <div><b>aguardando suporte</b><span id="longest" class="longest"></span></div>
+      <div><b>aguardando atendimento</b><span id="longest" class="longest"></span></div>
     </div>
     <ul id="queue" class="queue"></ul>
+    <p id="partialWarn" class="partial" hidden></p>
   </div>
 
   <div id="warnHero" class="warn-hero" hidden>
     <div class="warn-row">
       <div class="warn-icon"><svg viewBox="0 0 24 24"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></svg></div>
-      <div><b id="warnTitle">A sala saiu da tela</b>
-        <p>Nenhuma aba do Discord está vendo a Aguardando Suporte. Quem entrar agora só será avisado quando ela voltar.</p></div>
+      <div><b id="warnTitle">As salas saíram da tela</b>
+        <p>Nenhuma aba do Discord está vendo as salas de espera. Quem entrar agora só será avisado quando elas voltarem.</p></div>
     </div>
     <ol class="steps">
       <li>Abra o servidor Cidade dos Artistas</li>
-      <li>Role a lista até ✦ Aguardando Suporte</li>
+      <li>Role a lista até as salas ✦ Aguardando e Entrevista</li>
       <li>Dica: deixe uma janela só de vigia minimizada</li>
     </ol>
   </div>

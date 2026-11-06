@@ -24,7 +24,12 @@ function initial(name) {
   return letter.toUpperCase();
 }
 
-function renderQueue(queue) {
+const SHORT = { suporte: "SUPORTE", banido: "BANIDO", entrevista: "ENTREVISTA" };
+function roomTag(room, labels) {
+  return el("span", `tag ${room}`, SHORT[room] ?? (labels[room] ?? room).toUpperCase());
+}
+
+function renderQueue(queue, labels) {
   const ul = $("queue");
   ul.replaceChildren();
   $("count").textContent = queue.length;
@@ -33,17 +38,19 @@ function renderQueue(queue) {
     ul.append(el("li", "empty", "Ninguém aguardando"));
     return;
   }
-  for (const [name, ts] of queue) {
+  for (const [name, ts, room] of queue) {
     const min = minutes(ts);
     const who = el("div", "who");
-    who.append(el("b", "", name), el("small", "", `entrou ${clock(ts)}`));
+    const sub = el("small", "", `entrou ${clock(ts)}`);
+    sub.append(roomTag(room, labels));
+    who.append(el("b", "", name), sub);
     const li = el("li", "row");
     li.append(el("span", "avatar", initial(name)), who, el("span", min >= LATE_MIN ? "pill late" : "pill", waitLabel(min)));
     ul.append(li);
   }
 }
 
-function renderHistory(history) {
+function renderHistory(history, labels) {
   const ul = $("history");
   ul.replaceChildren();
   if (!history.length) {
@@ -52,7 +59,9 @@ function renderHistory(history) {
   }
   for (const h of history.slice(0, 6)) {
     const li = el("li");
-    li.append(el("span", "", h.name), el("span", "", clock(h.at)));
+    const who = el("span", "", h.name);
+    if (h.room) who.append(roomTag(h.room, labels));
+    li.append(who, el("span", "", clock(h.at)));
     ul.append(li);
   }
 }
@@ -64,19 +73,31 @@ function renderCall(channel) {
 }
 
 async function render() {
-  const s = await chrome.storage.session.get(["tabs", "known", "since", "history"]);
+  const s = await chrome.storage.session.get(["tabs", "known", "since", "labels", "history"]);
   const tabs = Object.values(s.tabs ?? {});
-  const watching = tabs.some((t) => t.visible);
+  const labels = s.labels ?? {};
+  const rooms = new Set(tabs.flatMap((t) => Object.keys(t.rooms ?? {})));
+  const watched = [...rooms].filter((r) => tabs.some((t) => t.rooms?.[r]?.visible));
+  const unwatched = [...rooms].filter((r) => !watched.includes(r));
+  const watching = watched.length > 0;
 
-  $("chip").textContent = watching ? "Vigiando" : "Sem vigia";
-  $("chip").classList.toggle("warn", !watching);
+  $("chip").textContent = !watching ? "Sem vigia" : unwatched.length ? "Vigia parcial" : "Vigiando";
+  $("chip").classList.toggle("warn", !watching || unwatched.length > 0);
+  $("partialWarn").hidden = !(watching && unwatched.length);
+  $("partialWarn").textContent = `Fora da tela, sem aviso: ${unwatched
+    .map((r) => tabs.map((t) => t.rooms?.[r]?.label).find(Boolean) ?? r)
+    .join(", ")}`;
   $("hero").hidden = !watching;
   $("warnHero").hidden = watching;
-  $("warnTitle").textContent = tabs.length ? "A sala saiu da tela" : "Nenhuma aba do Discord aberta";
+  $("warnTitle").textContent = tabs.length ? "As salas saíram da tela" : "Nenhuma aba do Discord aberta";
 
+  // Só lista salas que alguma aba está vendo agora; as outras podem estar desatualizadas.
   const since = s.since ?? {};
-  renderQueue((s.known ?? []).map((n) => [n, since[n] ?? Date.now()]).sort((a, b) => a[1] - b[1]));
-  renderHistory(s.history ?? []);
+  const queue = watched
+    .flatMap((r) => (s.known?.[r] ?? []).map((n) => [n, since[r]?.[n] ?? Date.now(), r]))
+    .sort((a, b) => a[1] - b[1]);
+  renderQueue(queue, labels);
+  renderHistory(s.history ?? [], labels);
   renderCall(tabs.map((t) => t.myChannel).find(Boolean) ?? null);
 }
 
