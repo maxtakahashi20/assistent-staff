@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "City Support — Aviso de fila",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Avisa (notificação + som) quando alguém entra na call Aguardando Suporte no Discord Web. Só lê a página; não usa token nem faz requisições.",
   "icons": { "128": "icon.png" },
   "permissions": ["notifications", "storage"],

@@ -47,6 +47,12 @@ async function render() {
       "Deixe uma aba do Discord no servidor, com a lista rolada até Aguardando Suporte.";
   }
 
+  const mine = tabs.map((t) => t.myChannel).find(Boolean);
+  $("myChannel").className = mine ? "on" : "empty";
+  $("myChannel").textContent = mine
+    ? `Você está em: ${mine}`
+    : "Não encontrei você em nenhuma canaleta de atendimento.";
+
   const since = s.since ?? {};
   const queue = (s.known ?? []).map((n) => [n, since[n] ?? Date.now()]).sort((a, b) => a[1] - b[1]);
   $("count").textContent = queue.length;
@@ -60,6 +66,9 @@ async function init() {
     $(key).checked = settings[key];
     $(key).addEventListener("change", (e) => chrome.storage.local.set({ [key]: e.target.checked }));
   }
+  const { myName = "" } = await chrome.storage.local.get("myName");
+  $("myName").value = myName;
+  $("myName").addEventListener("change", (e) => chrome.storage.local.set({ myName: e.target.value.trim() }));
   $("test").addEventListener("click", () => chrome.runtime.sendMessage({ type: "test" }));
   chrome.storage.onChanged.addListener((_, area) => area === "session" && render());
   setInterval(render, 30000); // atualiza o "há X min"

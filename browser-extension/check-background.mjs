@@ -9,7 +9,7 @@ globalThis.chrome = {
     session: { get: async () => ({ ...structuredClone(session) }), set: async (v) => Object.assign(session, structuredClone(v)) },
     local: { get: async (d) => d },
   },
-  notifications: { create: (id, o) => notes.push(o.message), onClicked: on("click"), clear() {} },
+  notifications: { create: (id, o) => notes.push(o.message), onClicked: on("click"), onButtonClicked: on("btn"), onClosed: on("closed"), clear() {} },
   tabs: { sendMessage: async (id) => beeps.push(id), onRemoved: on("removed"), update() {} },
   action: { setBadgeText() {}, setBadgeBackgroundColor() {} },
   runtime: { onMessage: on("msg"), onStartup: on("s"), onInstalled: on("i") },

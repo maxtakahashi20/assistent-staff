@@ -18,14 +18,17 @@ async function loadState() {
 async function alertJoined(names, tabId) {
   const settings = await chrome.storage.local.get(SETTINGS_DEFAULTS);
   if (settings.notify) {
-    chrome.notifications.create(`tab-${tabId ?? 0}-${Date.now()}`, {
+    const id = `tab-${tabId ?? 0}-${Date.now()}`;
+    chrome.notifications.create(id, {
       type: "basic",
       iconUrl: "icon.png",
       title: "Aguardando Suporte",
       message: `${names.join(", ")} entrou na fila`,
       priority: 2,
       requireInteraction: true,
+      buttons: [{ title: "Ir para o Discord" }],
     });
+    await chrome.storage.session.set({ [`n:${id}`]: names[0] });
   }
   if (settings.sound && tabId) {
     chrome.tabs.sendMessage(tabId, { type: "beep" }).catch(() => {});
@@ -68,7 +71,7 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   if (msg.type === "report" && sender.tab) {
     serial(async () => {
       const s = await loadState();
-      s.tabs[sender.tab.id] = { visible: msg.visible, names: msg.names };
+      s.tabs[sender.tab.id] = { visible: msg.visible, names: msg.names, myChannel: msg.myChannel };
       await recompute(s, sender.tab.id);
     });
   } else if (msg.type === "test") {
@@ -88,14 +91,24 @@ chrome.tabs.onRemoved.addListener((tabId) =>
   })
 );
 
-chrome.notifications.onClicked.addListener((id) => {
-  const tabId = Number(id.split("-")[1]);
+// Clique na notificação ou no botão: traz a aba e destaca o jogador com o menu pronto.
+async function goTo(id) {
+  const key = `n:${id}`;
+  const { [key]: name } = await chrome.storage.session.get(key);
   chrome.notifications.clear(id);
+  chrome.storage.session.remove(key);
+  const tabId = Number(id.split("-")[1]);
   if (!tabId) return;
-  chrome.tabs.update(tabId, { active: true }, (tab) => {
-    if (tab) chrome.windows.update(tab.windowId, { focused: true });
-  });
-});
+  const tab = await chrome.tabs.update(tabId, { active: true }).catch(() => null);
+  if (!tab) return;
+  const win = await chrome.windows.get(tab.windowId);
+  await chrome.windows.update(win.id, win.state === "minimized" ? { state: "normal", focused: true } : { focused: true });
+  chrome.tabs.sendMessage(tabId, { type: "focusUser", name }).catch(() => {});
+}
+
+chrome.notifications.onClicked.addListener(goTo);
+chrome.notifications.onButtonClicked.addListener(goTo);
+chrome.notifications.onClosed.addListener((id) => chrome.storage.session.remove(`n:${id}`));
 
 chrome.runtime.onStartup.addListener(() => updateBadge(false, 0));
 chrome.runtime.onInstalled.addListener(() => updateBadge(false, 0));
