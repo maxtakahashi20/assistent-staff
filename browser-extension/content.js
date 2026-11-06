@@ -1,7 +1,6 @@
 // Só lê a lista de canais que já está na tela. Não usa token, não chama API,
 // não clica nem envia nada no Discord.
 const WAITING_ROOM_ID = "1305663080826535937"; // Aguardando Suporte
-const POLL_MS = 1500;
 
 let known = null; // nomes já vistos na sala; null = ainda sem leitura
 
@@ -35,7 +34,9 @@ function beep() {
   setTimeout(() => ctx.close(), 1000);
 }
 
-setInterval(() => {
+// MutationObserver em vez de setInterval: o Chrome limita timers de aba
+// minimizada/em segundo plano a 1x por minuto, mas não segura o observer.
+function check() {
   const current = usersInChannel(WAITING_ROOM_ID);
   if (current === null) return; // não some com quem já estava só porque o canal saiu da tela
   if (known !== null) {
@@ -46,4 +47,7 @@ setInterval(() => {
     }
   }
   known = current;
-}, POLL_MS);
+}
+
+new MutationObserver(check).observe(document.body, { childList: true, subtree: true });
+check();
