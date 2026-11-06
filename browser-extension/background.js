@@ -82,13 +82,20 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   }
 });
 
-chrome.tabs.onRemoved.addListener((tabId) =>
+const forgetTab = (tabId) =>
   serial(async () => {
     const s = await loadState();
     if (!(tabId in s.tabs)) return;
     delete s.tabs[tabId];
     await recompute(s, null);
-  })
+  });
+
+chrome.tabs.onRemoved.addListener(forgetTab);
+// Aba recarregando, indo para outro site ou descartada pelo Chrome: esquece até
+// o content script (se ainda estiver no Discord) reportar de novo.
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.status === "loading" || info.discarded) forgetTab(tabId);
+}
 );
 
 // Clique na notificação ou no botão: traz a aba e destaca o jogador com o menu pronto.

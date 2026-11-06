@@ -10,7 +10,7 @@ globalThis.chrome = {
     local: { get: async (d) => d },
   },
   notifications: { create: (id, o) => notes.push(o.message), onClicked: on("click"), onButtonClicked: on("btn"), onClosed: on("closed"), clear() {} },
-  tabs: { sendMessage: async (id) => beeps.push(id), onRemoved: on("removed"), update() {} },
+  tabs: { sendMessage: async (id) => beeps.push(id), onRemoved: on("removed"), onUpdated: on("updated"), update() {} },
   action: { setBadgeText() {}, setBadgeBackgroundColor() {} },
   runtime: { onMessage: on("msg"), onStartup: on("s"), onInstalled: on("i") },
   windows: { update() {} },
@@ -33,3 +33,8 @@ await report(2, true, ["Ana", "Bia"]);           // voltou: Bia entrou enquanto 
 assert.deepEqual(notes.at(-1), "Bia entrou na fila");
 assert.deepEqual(session.known, ["Ana", "Bia"]);
 console.log("ok");
+
+listeners.updated(2, { status: "loading" });      // aba recarregou: deixa de contar como vigia
+await new Promise((r) => setTimeout(r, 10));
+assert.equal(session.tabs[2], undefined);
+console.log("ok: aba recarregada");

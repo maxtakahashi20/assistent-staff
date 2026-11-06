@@ -42,7 +42,7 @@ function myChannel() {
   if (!myName) return null;
   const me = myName.toLowerCase();
   for (const id of WORK_CHANNEL_IDS) {
-    if (voiceRows(id)?.some((r) => r.name.toLowerCase().includes(me))) {
+    if (voiceRows(id)?.some((r) => r.name.toLowerCase() === me)) {
       return { id, name: channelName(id) };
     }
   }
@@ -99,7 +99,8 @@ const menuItems = () => [...document.querySelectorAll('[role="menuitem"]')];
 
 async function focusUser(name) {
   const rows = voiceRows(WAITING_ROOM_ID);
-  const row = rows?.find((r) => r.name === name) ?? rows?.[0];
+  // Só o teste cai no primeiro da sala; aviso real nunca abre o menu de outro jogador.
+  const row = rows?.find((r) => r.name === name) ?? (name === "Teste" ? rows?.[0] : null);
   if (!row) return;
   row.el.scrollIntoView({ block: "center" });
   highlight(row.el);
@@ -151,7 +152,17 @@ function check() {
   }
 }
 
-const observer = new MutationObserver(check);
+// Junta as rajadas de mudanças do Discord numa leitura só. O timer nasce do
+// observer (não é encadeado), então em segundo plano roda no máximo 1x/s.
+let pending = false;
+const observer = new MutationObserver(() => {
+  if (pending) return;
+  pending = true;
+  setTimeout(() => {
+    pending = false;
+    check();
+  }, 250);
+});
 observer.observe(document.body, { childList: true, subtree: true });
 
 function setMyName(value) {
