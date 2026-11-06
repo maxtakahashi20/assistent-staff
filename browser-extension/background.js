@@ -23,7 +23,7 @@ async function loadState() {
   };
 }
 
-async function alertJoined(names, room, label, tabId) {
+async function alertJoined(names, room, label, tabId, beep = true) {
   const settings = await chrome.storage.local.get(SETTINGS_DEFAULTS);
   if (settings.notify) {
     const id = `tab-${tabId ?? 0}-${Date.now()}-${room}`;
@@ -38,18 +38,19 @@ async function alertJoined(names, room, label, tabId) {
     });
     await chrome.storage.session.set({ [`n:${id}`]: { name: names[0], room } });
   }
-  if (settings.sound && tabId) {
+  if (beep && settings.sound && tabId) {
     chrome.tabs.sendMessage(tabId, { type: "beep" }).catch(() => {});
   }
 }
 
-function updateBadge(allWatched, count) {
-  if (!allWatched) {
+// Nenhuma sala vista: "!". Alguma fora da tela: número em laranja. Todas vistas: verde.
+function updateBadge(watched, total, count) {
+  if (!watched) {
     chrome.action.setBadgeText({ text: "!" });
     chrome.action.setBadgeBackgroundColor({ color: "#e8a33d" });
   } else {
     chrome.action.setBadgeText({ text: count ? String(count) : "" });
-    chrome.action.setBadgeBackgroundColor({ color: "#3ba55d" });
+    chrome.action.setBadgeBackgroundColor({ color: watched < total ? "#e8a33d" : "#3ba55d" });
   }
 }
 
@@ -57,6 +58,8 @@ async function recompute(s, reporterTabId) {
   const tabs = Object.values(s.tabs);
   const rooms = new Set(tabs.flatMap((t) => Object.keys(t.rooms ?? {})));
   let watchedCount = 0;
+  let count = 0; // só das salas vistas agora, igual ao painel
+  let beeped = false; // várias entradas na mesma leitura: um bipe só
   for (const room of rooms) {
     const seen = tabs.map((t) => t.rooms?.[room]).filter((r) => r?.visible);
     // Sala sem nenhuma aba vendo: a fila dela fica como estava, e quem entrar
@@ -69,7 +72,8 @@ async function recompute(s, reporterTabId) {
     if (known) {
       const joined = [...current].filter((n) => !known.includes(n));
       if (joined.length) {
-        await alertJoined(joined, room, label, reporterTabId);
+        await alertJoined(joined, room, label, reporterTabId, !beeped);
+        beeped = true;
         const now = Date.now();
         s.history = [...joined.map((name) => ({ name, room, at: now })), ...s.history].slice(0, 20);
       }
@@ -78,10 +82,10 @@ async function recompute(s, reporterTabId) {
     for (const n of current) since[n] ??= Date.now();
     for (const n of Object.keys(since)) if (!current.has(n)) delete since[n];
     s.known[room] = [...current];
+    count += current.size;
   }
   await chrome.storage.session.set(s);
-  const total = Object.values(s.known).reduce((sum, names) => sum + names.length, 0);
-  updateBadge(rooms.size > 0 && watchedCount === rooms.size, total);
+  updateBadge(watchedCount, rooms.size, count);
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
@@ -133,5 +137,5 @@ chrome.notifications.onClicked.addListener(goTo);
 chrome.notifications.onButtonClicked.addListener(goTo);
 chrome.notifications.onClosed.addListener((id) => chrome.storage.session.remove(`n:${id}`));
 
-chrome.runtime.onStartup.addListener(() => updateBadge(false, 0));
-chrome.runtime.onInstalled.addListener(() => updateBadge(false, 0));
+chrome.runtime.onStartup.addListener(() => updateBadge(0, 0, 0));
+chrome.runtime.onInstalled.addListener(() => updateBadge(0, 0, 0));

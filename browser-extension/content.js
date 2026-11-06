@@ -29,13 +29,9 @@ function channelName(channelId) {
   return (link?.querySelector('[class*="name"]') ?? link)?.textContent.trim() ?? "";
 }
 
-const roomLink = (room) => channelLink(room.id);
-
-const voiceRows = (channelId) => voiceRowsOf(channelLink(channelId));
-
 // [{ name, el, nameEl }] de quem está na call, ou null se o canal não está na tela.
-function voiceRowsOf(link) {
-  const item = link?.closest("li");
+function voiceRows(channelId) {
+  const item = channelLink(channelId)?.closest("li");
   if (!item) return null; // canal fora da tela (outro servidor ou lista rolada)
   // ponytail: depende das classes "voiceUser*"/"username*" do Discord; se ele mudar o HTML, ajustar aqui.
   return [...item.querySelectorAll('[class*="voiceUser"]')]
@@ -108,7 +104,7 @@ const menuItems = () => [...document.querySelectorAll('[role="menuitem"]')];
 
 async function focusUser(name, roomKey) {
   const room = ROOMS.find((r) => r.key === roomKey) ?? ROOMS[0];
-  const rows = voiceRowsOf(roomLink(room));
+  const rows = voiceRows(room.id);
   // Só o teste cai no primeiro da sala; aviso real nunca abre o menu de outro jogador.
   const row = rows?.find((r) => r.name === name) ?? (name === "Teste" ? rows?.[0] : null);
   if (!row) return;
@@ -148,7 +144,7 @@ let lastReport = "";
 function check() {
   const rooms = {};
   for (const room of ROOMS) {
-    const rows = voiceRowsOf(roomLink(room));
+    const rows = voiceRows(room.id);
     rooms[room.key] = {
       label: room.label,
       visible: rows !== null,
